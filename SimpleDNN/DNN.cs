@@ -8,8 +8,9 @@ namespace SimpleDNN {
 	class DNN {
 		private Node[][] nodes;
 		private Weight[][][] weights;
+		private double learningRate = 0.3;
 		public DNN(int inputNumber, int outputNumber, int[] hiddenNumbers) {
-			nodes = new Node[inputNumber+outputNumber+hiddenNumbers.Length][];
+			nodes = new Node[2+hiddenNumbers.Length][];
 
 			nodes[0] = new Node[inputNumber];
 			for (int inputCount = 0; inputCount < inputNumber; inputCount++) {
@@ -30,8 +31,8 @@ namespace SimpleDNN {
 
 			Random rand = new Random();
 
-			weights = new Weight[nodes.Length][][];
-			for (int layer = 0; layer < this.weights.Length - 1; layer++) {
+			weights = new Weight[nodes.Length-1][][];
+			for (int layer = 0; layer < weights.Length; layer++) {
 				weights[layer] = new Weight[nodes[layer].Length][];
 				for (int inputIndex = 0; inputIndex < weights[layer].Length; inputIndex++) {
 					weights[layer][inputIndex] = new Weight[nodes[layer+1].Length];
@@ -46,18 +47,18 @@ namespace SimpleDNN {
 			
 		}
 
-		public double[] guess(double[] inputs) {
+		public double[] Guess(double[] inputs) {
 			for (int inputIndex = 0; inputIndex < nodes[0].Length; inputIndex++) {
-				nodes[0][inputIndex].activate(inputs[inputIndex]);
+				nodes[0][inputIndex].Activate(inputs[inputIndex]);
 			}
 
 			for (int layer = 1; layer < nodes.Length; layer++) {
 				for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
 					double nodeValue = 0;
 					for (int inputNode = 0; inputNode < nodes[layer-1].Length; inputNode++) {
-						nodeValue += nodes[layer - 1][inputNode].output * weights[layer][inputNode][outputNode].value;
+						nodeValue += nodes[layer - 1][inputNode].output * weights[layer - 1][inputNode][outputNode].value;
 					}
-					nodes[layer][outputNode].activate(nodeValue);
+					nodes[layer][outputNode].Activate(nodeValue);
 				}
 			}
 
@@ -69,12 +70,46 @@ namespace SimpleDNN {
 
 			return ret;
 		}
+
+		public void Train(double[] inputs, double[] expectedOutputs, bool execute) {
+			double[] guess = Guess(inputs);
+
+			for (int outputIndex = 0; outputIndex < nodes[nodes.Length-1].Length; outputIndex++) {
+				nodes[nodes.Length - 1][outputIndex].expected = expectedOutputs[outputIndex];
+			}
+
+			for (int layer = nodes.Length - 1; layer > 0; layer--) {
+				for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
+					double error = nodes[layer][outputNode].expected - nodes[layer][outputNode].output;
+					double gradient = nodes[layer][outputNode].Derivative() * error * learningRate;
+
+					for (int inputNode = 0; inputNode < nodes[layer-1].Length; inputNode++) {
+						// If just starting on this layer, reset the expectation of the nodes of the previous layer
+						if (outputNode == 0) {
+							nodes[layer - 1][inputNode].expected = 0;
+						}
+						weights[layer - 1][inputNode][outputNode].adjustment += gradient * nodes[layer - 1][inputNode].output;
+						nodes[layer - 1][inputNode].expected += weights[layer - 1][inputNode][outputNode].value * error;
+						if (execute) {
+							weights[layer - 1][inputNode][outputNode].value += weights[layer - 1][inputNode][outputNode].adjustment;
+							weights[layer - 1][inputNode][outputNode].adjustment = 0;
+						}
+					}
+
+					if (execute) {
+						nodes[layer][outputNode].bias += gradient;
+					}
+				}
+			}
+		}
 	}
 
 	class Node {
-		private double bias = 1;
+		public double bias = 1;
 		private double value;
 		public double output;
+		public double adjustment = 0;
+		public double expected = 0;
 		private ActivationType activator = ActivationType.Sigmoid;
 
 		public enum ActivationType {
@@ -87,31 +122,35 @@ namespace SimpleDNN {
 			activator = activatorType;
 		}
 
-		public void activate(double inputTotal) {
-			value = inputTotal + bias;
-			output = activator == ActivationType.Sigmoid ? sigmoid(value) : activator == ActivationType.Tanh ? tanh(value) : value;
+		public void Activate(double inputTotal) {
+			value = inputTotal + (activator == ActivationType.Input ? 0 : bias);
+			output = activator == ActivationType.Sigmoid ? Sigmoid(value) : activator == ActivationType.Tanh ? Tanh(value) : value;
 		}
 
-		private static double sigmoid(double value) {
+		public double Derivative() {
+			return activator == ActivationType.Sigmoid ? SigmoidDerivative(value) : TanhDerivative(value);
+		}
+
+		private static double Sigmoid(double value) {
 			return 1 / (1 + Math.Exp(-1 * value));
 		}
 
-		private static double sigmoidDerivative(double value) {
-			return sigmoid(value) * (1 - sigmoid(value));
+		private static double SigmoidDerivative(double value) {
+			return Sigmoid(value) * (1 - Sigmoid(value));
 		}
 
-		private static double tanh(double value) {
+		private static double Tanh(double value) {
 			return Math.Tanh(value);
 		}
 
-		private static double tanhDerivative(double value) {
+		private static double TanhDerivative(double value) {
 			return 1 - Math.Pow(Math.Tanh(value), 2);
 		}
 	}
 
 	class Weight {
 		public double value;
-		public double adjustment;
+		public double adjustment = 0;
 
 		public Weight(double value) {
 			this.value = value;
