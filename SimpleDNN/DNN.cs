@@ -7,38 +7,89 @@ using System.Threading.Tasks;
 namespace SimpleDNN {
 	class DNN {
 		private Node[][] nodes;
-		private Weight[] weights;
-		public DNN(int inputNumber, int outputNumber, int[] hiddenNumber) : this(inputNumber, outputNumber) {
+		private Weight[][][] weights;
+		public DNN(int inputNumber, int outputNumber, int[] hiddenNumbers) {
+			nodes = new Node[inputNumber+outputNumber+hiddenNumbers.Length][];
+
+			nodes[0] = new Node[inputNumber];
+			for (int inputCount = 0; inputCount < inputNumber; inputCount++) {
+				nodes[0][inputCount] = new Node(Node.ActivationType.Input);
+			}
+
+			for (int hiddenLayerCount = 0; hiddenLayerCount < hiddenNumbers.Length; hiddenLayerCount++) {
+				nodes[hiddenLayerCount + 1] = new Node[hiddenNumbers[hiddenLayerCount]];
+				for (int hiddenNodeCount = 0; hiddenNodeCount < hiddenNumbers[hiddenLayerCount]; hiddenNodeCount++) {
+					nodes[hiddenLayerCount + 1][hiddenNodeCount] = new Node(Node.ActivationType.Sigmoid);
+				}
+			}
+
+			nodes[nodes.Length - 1] = new Node[outputNumber];
+			for (int outputCount = 0; outputCount < outputNumber; outputCount++) {
+				nodes[nodes.Length - 1][outputCount] = new Node(Node.ActivationType.Sigmoid);
+			}
+
+			Random rand = new Random();
+
+			weights = new Weight[nodes.Length][][];
+			for (int layer = 0; layer < this.weights.Length - 1; layer++) {
+				weights[layer] = new Weight[nodes[layer].Length][];
+				for (int inputIndex = 0; inputIndex < weights[layer].Length; inputIndex++) {
+					weights[layer][inputIndex] = new Weight[nodes[layer+1].Length];
+					for (int outputIndex = 0; outputIndex < weights[layer][inputIndex].Length; outputIndex++) {
+						weights[layer][inputIndex][outputIndex] = new Weight(rand.NextDouble() * 2 - 1);						
+					}
+				}
+			}
+		}
+
+		public DNN(int inputNumber, int outputNumber) : this(inputNumber, outputNumber, new int[0]) {
 			
 		}
 
-		public DNN(int inputNumber, int outputNumber) {
-			
+		public double[] guess(double[] inputs) {
+			for (int inputIndex = 0; inputIndex < nodes[0].Length; inputIndex++) {
+				nodes[0][inputIndex].activate(inputs[inputIndex]);
+			}
+
+			for (int layer = 1; layer < nodes.Length; layer++) {
+				for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
+					double nodeValue = 0;
+					for (int inputNode = 0; inputNode < nodes[layer-1].Length; inputNode++) {
+						nodeValue += nodes[layer - 1][inputNode].output * weights[layer][inputNode][outputNode].value;
+					}
+					nodes[layer][outputNode].activate(nodeValue);
+				}
+			}
+
+
+			double[] ret = new double[nodes[nodes.Length-1].Length];
+			for (int outputIndex = 0; outputIndex < ret.Length; outputIndex++) {
+				ret[outputIndex] = nodes[nodes.Length - 1][outputIndex].output;
+			}
+
+			return ret;
 		}
 	}
 
 	class Node {
-		private double bias;
+		private double bias = 1;
 		private double value;
-		private double output;
+		public double output;
 		private ActivationType activator = ActivationType.Sigmoid;
 
 		public enum ActivationType {
 			Sigmoid,
-			Tanh
+			Tanh,
+			Input
 		}
 
 		public Node(ActivationType activatorType) {
-			bias = 1;
-			value = 0;
-			output = 0;
 			activator = activatorType;
 		}
 
-		public double Activate(int inputTotal) {
-			value = inputTotal;
-			output = activator == ActivationType.Sigmoid ? sigmoid(value) : tanh(value);
-			return 0.0;
+		public void activate(double inputTotal) {
+			value = inputTotal + bias;
+			output = activator == ActivationType.Sigmoid ? sigmoid(value) : activator == ActivationType.Tanh ? tanh(value) : value;
 		}
 
 		private static double sigmoid(double value) {
@@ -57,12 +108,13 @@ namespace SimpleDNN {
 			return 1 - Math.Pow(Math.Tanh(value), 2);
 		}
 	}
+
 	class Weight {
-		public int inputNodeIndex { get; }
-		public int outputNodeIndex { get; }
-		public Weight(int inputIndex, int outputIndex) {
-			inputNodeIndex = inputIndex;
-			outputNodeIndex = outputIndex;
+		public double value;
+		public double adjustment;
+
+		public Weight(double value) {
+			this.value = value;
 		}
 	}
 }
