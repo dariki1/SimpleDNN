@@ -8,7 +8,7 @@ namespace SimpleDNN {
 	class DNN {
 		private Node[][] nodes;
 		private Weight[][][] weights;
-		private double learningRate = 0.3;
+		private double learningRate = 0.1;
 		public DNN(int inputNumber, int outputNumber, int[] hiddenNumbers) {
 			nodes = new Node[2+hiddenNumbers.Length][];
 
@@ -88,27 +88,37 @@ namespace SimpleDNN {
 						if (outputNode == 0) {
 							nodes[layer - 1][inputNode].expected = 0;
 						}
-						weights[layer - 1][inputNode][outputNode].adjustment += gradient * nodes[layer - 1][inputNode].output;
+
+						weights[layer - 1][inputNode][outputNode].Adjust(gradient * nodes[layer - 1][inputNode].output);
 						nodes[layer - 1][inputNode].expected += weights[layer - 1][inputNode][outputNode].value * error;
+
 						if (execute) {
-							weights[layer - 1][inputNode][outputNode].value += weights[layer - 1][inputNode][outputNode].adjustment;
-							weights[layer - 1][inputNode][outputNode].adjustment = 0;
+							weights[layer - 1][inputNode][outputNode].Train();
 						}
 					}
 
+					nodes[layer][outputNode].AdjustBias(gradient);
+
 					if (execute) {
-						nodes[layer][outputNode].bias += gradient;
+						nodes[layer][outputNode].TrainBias();
 					}
 				}
 			}
 		}
+
+		public void Train(double[] inputs, double[] outputs) {
+			Train(inputs, outputs, true);
+		}
 	}
 
 	class Node {
-		public double bias = 1;
+		private double bias = 1;
+		private double biasAdjustment = 0;
 		private double value;
-		public double output;
-		public double adjustment = 0;
+		private double _output = 0;
+		public double output {
+			get { return _output; }
+		}
 		public double expected = 0;
 		private ActivationType activator = ActivationType.Sigmoid;
 
@@ -122,9 +132,18 @@ namespace SimpleDNN {
 			activator = activatorType;
 		}
 
+		public void AdjustBias(double amount) {
+			biasAdjustment += amount;
+		}
+
+		public void TrainBias() {
+			bias += biasAdjustment;
+			biasAdjustment = 0;
+		}
+
 		public void Activate(double inputTotal) {
 			value = inputTotal + (activator == ActivationType.Input ? 0 : bias);
-			output = activator == ActivationType.Sigmoid ? Sigmoid(value) : activator == ActivationType.Tanh ? Tanh(value) : value;
+			_output = activator == ActivationType.Sigmoid ? Sigmoid(value) : activator == ActivationType.Tanh ? Tanh(value) : value;
 		}
 
 		public double Derivative() {
@@ -150,10 +169,19 @@ namespace SimpleDNN {
 
 	class Weight {
 		public double value;
-		public double adjustment = 0;
+		private double adjustment = 0;
 
 		public Weight(double value) {
 			this.value = value;
+		}
+
+		public void Train() {
+			value += adjustment;
+			adjustment = 0;
+		}
+
+		public void Adjust(double amount) {
+			adjustment += amount;
 		}
 	}
 }
