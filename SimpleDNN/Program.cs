@@ -8,53 +8,53 @@ namespace SimpleDNN {
 	class Program {
 		static Random rand = new Random();
 		static void Main(string[] args) {
-			DNN net = new DNN(2, 1, new int[] {  });
-			
-			while (true) {
-				train(net);
-				Console.ReadKey();
+			DNN net = new DNN(784, 10, new int[] { 20, 20 });
+			MNistReader data = new MNistReader();
+
+			for (int i = 0; i < 1; i++) {
+				train(net, data.training);
+				test(net, data.testing);
 			}			
+
+			Console.ReadKey();
 		}
 
-		static double[][] getData() {
-			double[] input = new double[] { rand.NextDouble(), rand.NextDouble() };
-			double[] output = new double[] { input[0] > input[1] ? 0 : 1};
-			return new double[][] { input, output };
-		}
+		public static void train(DNN net, double[][][] data) {
+			double[] expectedResults = new double[10];
+			int index = 0;
+			for (int image = 0; image < data.Length; image++) {
+				expectedResults[index] = 0;
+				index = (int)data[image][0][0];
+				expectedResults[index] = 1;
 
-		static void train(DNN net) {
-			double[][] data = getData();
+				net.Train(data[image][1], expectedResults, index % 10 == 9);
 
-			for (int i = 0; i < 50000; i++) {
-				data = getData();
-				data[0][0] = Math.Round(data[0][0]);
-				data[0][1] = Math.Round(data[0][1]);
-				net.Train(data[0], data[1], true);
+				if (image % 1000 == 999) {
+					Console.WriteLine("Completed " + image + " training sets");
+				}
 			}
+		}
 
-			int accurate = 0;
-			double precise = 0;
-			const int testNum = 1000;
+		public static void test(DNN net, double[][][] data) {
+			int correct = 0;
+			for (int image = 0; image < data.Length; image++) {
+				double[] guess = net.Guess(data[image][1]);
+				int hIndex = 0;
+				for (int i = 1; i < guess.Length; i++) {
+					if (guess[i] > guess[hIndex]) {
+						hIndex = i;
+					}
+				}
+				if (hIndex == (int)data[image][0][0]) {
+					++correct;
+				}
 
-			for (int i = 0; i < testNum; i++) {
-				data = getData();
-				double[] guess = net.Guess(data[0]);
-				if (Math.Round(guess[0]) == data[1][0]) {
-					++accurate;
-					precise += Math.Abs(data[1][0] - guess[0]);
+				if (image % 1000 == 999) {
+					Console.WriteLine("Completed " + image + " testing sets");
 				}
 			}
 
-			Console.WriteLine(100.0 * accurate / testNum + "% accurate, " + 100 * precise / accurate + "% precise");
-
-			int[,] outputs = new int[20, 20];
-			for (double x = 0; x < outputs.GetLength(0); x++) {
-				for (double y = 0; y < outputs.GetLength(1); y++) {
-					outputs[(int)x, (int)y] = (int)Math.Round(net.Guess(new double[] { x / outputs.GetLength(0), y / outputs.GetLength(1) })[0]);
-					Console.Write(outputs[(int)x, (int)y] + ",");
-				}
-				Console.WriteLine();
-			}
+			Console.WriteLine("Completed testing with " + (100*correct/data.Length) + "% accuracy");
 		}
 	}
 }
