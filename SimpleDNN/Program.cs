@@ -17,9 +17,9 @@ namespace SimpleDNN {
 		static PictureBox tttInput = new PictureBox();
 
 		static void Main(string[] args) {
-			/*ThreadStart formRef = new ThreadStart(startForm);
+			ThreadStart formRef = new ThreadStart(startForm);
 			Thread formThread = new Thread(formRef);
-			formThread.Start();*/
+			formThread.Start();
 
 			for (int i = 0; i < 10; i++) {
 				mNistTrain(net, data.training);
