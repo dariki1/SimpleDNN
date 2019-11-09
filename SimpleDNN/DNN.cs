@@ -9,33 +9,22 @@ namespace SimpleDNN {
 		private Node[][] nodes;
 		private Weight[][][] weights;
 		private double learningRate = 0.1;
-
 		public DNN(int inputNumber, int outputNumber, int[] hiddenNumbers) {
-			// Initialise node layers, one input layer, however many hidden layers and one output layer
 			nodes = new Node[2+hiddenNumbers.Length][];
 
-			// Initialise the nodes in input layer
-			nodes[0] = new Node[inputNumber+1];
+			nodes[0] = new Node[inputNumber];
 			for (int inputCount = 0; inputCount < inputNumber; inputCount++) {
-				// Create each node as an input node
 				nodes[0][inputCount] = new Node(Node.ActivationType.Input);
 			}
-			// Creates a Bias Node
-			nodes[0][inputNumber] = new Node(Node.ActivationType.Bias);
 
-			// Initialise the nodes for each hidden layer
 			for (int hiddenLayerCount = 0; hiddenLayerCount < hiddenNumbers.Length; hiddenLayerCount++) {
 				// Initialise the nodes for the current layer including the bias node
 				nodes[hiddenLayerCount + 1] = new Node[hiddenNumbers[hiddenLayerCount] + 1];
 				for (int hiddenNodeCount = 0; hiddenNodeCount < hiddenNumbers[hiddenLayerCount]; hiddenNodeCount++) {
-					// Create each node in this layer with the Sigmoid activation type
 					nodes[hiddenLayerCount + 1][hiddenNodeCount] = new Node(Node.ActivationType.Sigmoid);
 				}
-				// Create a bias node
-				nodes[hiddenLayerCount + 1][hiddenNumbers[hiddenLayerCount]] = new Node(Node.ActivationType.Bias);
 			}
 
-			// Initialise the output layer
 			nodes[nodes.Length - 1] = new Node[outputNumber];
 			for (int outputCount = 0; outputCount < outputNumber; outputCount++) {
 				nodes[nodes.Length - 1][outputCount] = new Node(Node.ActivationType.Sigmoid);
@@ -43,18 +32,13 @@ namespace SimpleDNN {
 
 			Random rand = new Random();
 
-			// Initialise the weights from each node in one layer to the nodes in the next layer
 			weights = new Weight[nodes.Length-1][][];
-			// For each layer
 			for (int layer = 0; layer < weights.Length; layer++) {
-				// Initialise the weights for the nodes that are passing their value forward
 				weights[layer] = new Weight[nodes[layer].Length][];
 				for (int inputIndex = 0; inputIndex < weights[layer].Length; inputIndex++) {
-					// Initilise the weights for the nodes that are recieving values from the previous layer
 					weights[layer][inputIndex] = new Weight[nodes[layer+1].Length];
 					for (int outputIndex = 0; outputIndex < weights[layer][inputIndex].Length; outputIndex++) {
-						// Give the weight a random value
-						weights[layer][inputIndex][outputIndex] = new Weight(rand.NextDouble() * 2 - 1);
+						weights[layer][inputIndex][outputIndex] = new Weight(rand.NextDouble() * 2 - 1);						
 					}
 				}
 			}
@@ -114,6 +98,12 @@ namespace SimpleDNN {
 							weights[layer - 1][inputNode][outputNode].Train();
 						}
 					}
+
+					nodes[layer][outputNode].AdjustBias(gradient);
+
+					if (execute) {
+						nodes[layer][outputNode].TrainBias();
+					}
 				}
 			}
 		}
@@ -130,17 +120,25 @@ namespace SimpleDNN {
 			get { return activator == ActivationType.Bias ? 1 : _output; }
 		}
 		public double expected = 0;
-		public ActivationType activator = ActivationType.Sigmoid;
+		private ActivationType activator = ActivationType.Sigmoid;
 
 		public enum ActivationType {
 			Sigmoid,
 			Tanh,
-			Input,
-			Bias
+			Input
 		}
 
 		public Node(ActivationType activatorType) {
 			activator = activatorType;
+		}
+
+		public void AdjustBias(double amount) {
+			biasAdjustment += amount;
+		}
+
+		public void TrainBias() {
+			bias += biasAdjustment;
+			biasAdjustment = 0;
 		}
 
 		public void Activate(double inputTotal) {
