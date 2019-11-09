@@ -25,8 +25,8 @@ namespace SimpleDNN {
 
 			// Initialise the nodes for each hidden layer
 			for (int hiddenLayerCount = 0; hiddenLayerCount < hiddenNumbers.Length; hiddenLayerCount++) {
-				// Initialise the nodes for the current layer
-				nodes[hiddenLayerCount + 1] = new Node[hiddenNumbers[hiddenLayerCount]];
+				// Initialise the nodes for the current layer including the bias node
+				nodes[hiddenLayerCount + 1] = new Node[hiddenNumbers[hiddenLayerCount] + 1];
 				for (int hiddenNodeCount = 0; hiddenNodeCount < hiddenNumbers[hiddenLayerCount]; hiddenNodeCount++) {
 					// Create each node in this layer with the Sigmoid activation type
 					nodes[hiddenLayerCount + 1][hiddenNodeCount] = new Node(Node.ActivationType.Sigmoid);
@@ -65,7 +65,7 @@ namespace SimpleDNN {
 		}
 
 		public double[] Guess(double[] inputs) {
-			for (int inputIndex = 0; inputIndex < nodes[0].Length; inputIndex++) {
+			for (int inputIndex = 0; inputIndex < nodes[0].Length - 1; inputIndex++) {
 				nodes[0][inputIndex].Activate(inputs[inputIndex]);
 			}
 
@@ -96,10 +96,8 @@ namespace SimpleDNN {
 			}
 
 			for (int layer = nodes.Length - 1; layer > 0; layer--) {
-				for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
-					if (nodes[layer][outputNode].activator == Node.ActivationType.Bias) {
-						continue;
-					}
+				// Get adjustments for all nodes except the Bias nodes, which is not present in the last layer
+				for (int outputNode = 0; outputNode < nodes[layer].Length - (layer == nodes.Length - 1 ? 0 : 1); outputNode++) {
 					double error = nodes[layer][outputNode].expected - nodes[layer][outputNode].output;
 					double gradient = nodes[layer][outputNode].Derivative() * error * learningRate;
 
@@ -126,12 +124,10 @@ namespace SimpleDNN {
 	}
 
 	class Node {
-		//private double bias = 1;
-		//private double biasAdjustment = 0;
 		private double value;
 		private double _output = 0;
 		public double output {
-			get { return _output; }
+			get { return activator == ActivationType.Bias ? 1 : _output; }
 		}
 		public double expected = 0;
 		public ActivationType activator = ActivationType.Sigmoid;
@@ -149,7 +145,7 @@ namespace SimpleDNN {
 
 		public void Activate(double inputTotal) {
 			value = inputTotal;
-			_output = activator == ActivationType.Sigmoid ? Sigmoid(value) : activator == ActivationType.Tanh ? Tanh(value) : activator == ActivationType.Bias ? 1 : value;
+			_output = activator == ActivationType.Sigmoid ? Sigmoid(value) : activator == ActivationType.Tanh ? Tanh(value) : value;
 		}
 
 		public double Derivative() {
