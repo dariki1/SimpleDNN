@@ -10,16 +10,18 @@ using System.Windows.Forms;
 namespace SimpleDNN {
 	class Program {
 		static Random rand = new Random();
-		static DNN net = new DNN(784, 10, new int[] { 20, 5 });
+		static DNN net;// = new DNN(784, 10, new int[] {});
 		static MNist data = new MNist();
 		static OutputForm form = new OutputForm();
 		static bool drawing = false;
 		static PictureBox tttInput = new PictureBox();
 
 		static void Main(string[] args) {
-			ThreadStart formRef = new ThreadStart(startForm);
+			net = new DNN(784, 10, new int[] { 20, 20 });
+
+			/*ThreadStart formRef = new ThreadStart(startForm);
 			Thread formThread = new Thread(formRef);
-			formThread.Start();
+			formThread.Start();*/
 
 			for (int i = 0; i < 10; i++) {
 				mNistTrain(net, data.training);
