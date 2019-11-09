@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace SimpleDNN {
-	class DNN {
+	public class DNN {
 		private Node[][] nodes;
 		private Weight[][][] weights;
 		private double learningRate = 0.1;

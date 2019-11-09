@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace SimpleDNN {
-	class MNistReader {
+	public class MNist {
 		const int labelOffset = 8;
 		const int dataOffset = 16;
 		const int imageWidth = 28;
@@ -15,8 +15,7 @@ namespace SimpleDNN {
 		public double[][][] training;
 		public double[][][] testing;
 
-		public MNistReader() {
-
+		public MNist() {
 			byte[] rawTrainLabels = Properties.Resources.train_labels;
 			byte[] rawTrainData = Properties.Resources.train_images;
 			training = new double[rawTrainLabels.Length - labelOffset][][];
@@ -27,7 +26,7 @@ namespace SimpleDNN {
 				training[image][1] = new double[imageWidth * imageHeight];
 				for (int x = 0; x < imageWidth; x++) {
 					for (int y = 0; y < imageHeight; y++) {
-						training[image][1][x * imageWidth + y] = rawTrainData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0;
+						training[image][1][x * imageWidth + y] = Math.Round(rawTrainData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
 					}
 				}
 			}
@@ -42,7 +41,7 @@ namespace SimpleDNN {
 				testing[image][1] = new double[imageWidth * imageHeight];
 				for (int x = 0; x < imageWidth; x++) {
 					for (int y = 0; y < imageHeight; y++) {
-						testing[image][1][x*imageWidth+y] = rawTestData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0;
+						testing[image][1][x*imageWidth+y] = Math.Round(rawTestData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
 					}
 				}
 			}
