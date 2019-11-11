@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SimpleDNN {
@@ -60,8 +62,29 @@ namespace SimpleDNN {
 			}
 		}
 
-		public DNN(int inputNumber, int outputNumber) : this(inputNumber, outputNumber, new int[0]) {
-			
+		public DNN(int inputNumber, int outputNumber) : this(inputNumber, outputNumber, new int[0]) {}
+
+		public void SaveToFile(string path) {
+			string sWeights = "";
+			for (int layer = 0; layer < weights.Length; layer++) {
+				sWeights += "{";
+				for (int input = 0; input < weights[layer].Length; input++) {
+					sWeights += "{";
+					for (int output = 0; output < weights[layer][input].Length; output++) {
+						sWeights += "{" + weights[layer][input][output].value + "}";
+					}
+					sWeights += "}";
+				}
+				sWeights += "}";
+			}
+			File.WriteAllText(path, sWeights);
+		}
+
+		/**
+		TODO: Make this work
+		**/
+		public void LoadFromFile(string path) {
+			string sWeights = File.ReadAllText(path);
 		}
 
 		public double[] Guess(double[] inputs) {
@@ -70,15 +93,23 @@ namespace SimpleDNN {
 			}
 
 			for (int layer = 1; layer < nodes.Length; layer++) {
-				for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
-					double nodeValue = 0;
-					for (int inputNode = 0; inputNode < nodes[layer-1].Length; inputNode++) {
-						nodeValue += nodes[layer - 1][inputNode].output * weights[layer - 1][inputNode][outputNode].value;
+				int nodeCount = nodes[layer].Length;
+				using (ManualResetEvent resetEvent = new ManualResetEvent(false)) {
+					for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
+						//pullValue(layer, outputNode);
+						ThreadPool.QueueUserWorkItem(new WaitCallback(input => {
+							Tuple<int, int> val = (Tuple<int, int>)input;
+							pullValue(val.Item1, val.Item2);
+							if (Interlocked.Decrement(ref nodeCount) == 0) {
+								resetEvent.Set();
+							}
+						}), new Tuple<int, int>(layer, outputNode));
 					}
-					nodes[layer][outputNode].Activate(nodeValue);
+					resetEvent.WaitOne();
 				}
 			}
 
+			
 
 			double[] ret = new double[nodes[nodes.Length-1].Length];
 			for (int outputIndex = 0; outputIndex < ret.Length; outputIndex++) {
@@ -86,6 +117,21 @@ namespace SimpleDNN {
 			}
 
 			return ret;
+		}
+
+		private void pullValue(int layer, int outputNode) {
+			double nodeValue = 0;
+			for (int inputNode = 0; inputNode < nodes[layer - 1].Length; inputNode++) {
+				nodeValue += nodes[layer - 1][inputNode].output * weights[layer - 1][inputNode][outputNode].value;
+			}
+			nodes[layer][outputNode].Activate(nodeValue);
+		}
+
+		public void BulkTrain(double[][] inputs, double[][] expectedOutputs, int interval) {
+			for (int input = 0; input < inputs.Length-1; input++) {
+				Train(inputs[input], expectedOutputs[input], input % interval == 0);
+			}
+			Train(inputs[inputs.Length-1], expectedOutputs[inputs.Length-1], true);
 		}
 
 		public void Train(double[] inputs, double[] expectedOutputs, bool execute) {

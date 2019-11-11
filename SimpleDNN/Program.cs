@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -9,34 +10,32 @@ using System.Windows.Forms;
 
 namespace SimpleDNN {
 	class Program {
-		static Random rand = new Random();
-		static DNN net;// = new DNN(784, 10, new int[] {});
-		static MNist data = new MNist();
-		static OutputForm form = new OutputForm();
-		static bool drawing = false;
-		static PictureBox tttInput = new PictureBox();
+		static Random rand;
+		static DNN net;
+		static MNist data;
+		static OutputForm form;
+		static bool drawing;
 
 		static void Main(string[] args) {
-			net = new DNN(784, 10, new int[] { 20, 20 });
+			rand = new Random();
+			net = new DNN(784, 10, new int[] {20, 20});
+			data = new MNist();
+			form = new OutputForm();
+			drawing = false;
 
 			/*ThreadStart formRef = new ThreadStart(startForm);
 			Thread formThread = new Thread(formRef);
 			formThread.Start();*/
 
-			for (int i = 0; i < 10; i++) {
-				mNistTrain(net, data.training);
-				mNistTest(net, data.testing);
-			}			
-		}
-
-		static void tTrain(string play, char winner) {
-
-		}
-
-		static double[] tGuess(double[] boardState) {
-			double[] guess = net.Guess(boardState);
-			Array.Sort(guess);
-			return guess;
+			Stopwatch s = Stopwatch.StartNew();			
+			for (int i = 0; i < 1; i++) {
+				mNistTrain(net, data.trainingData, data.trainingLabels);
+				mNistTest(net, data.testingData, data.testingLabels);
+			}
+			s.Stop();
+			Console.WriteLine("Complete in " + s.ElapsedMilliseconds);
+			//net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + "Weights.txt");
+			Console.ReadKey();
 		}
 
 		static void initMNistInput(PictureBox pB) {
@@ -101,44 +100,28 @@ namespace SimpleDNN {
 				mnistInput.Size = form.Size;
 			};
 
-			/*TicTacToe tTT = new TicTacToe(tttInput);
-
-			tttInput.SizeMode = PictureBoxSizeMode.Zoom;
-			tttInput.Dock = DockStyle.Fill;
-
-			form.Controls.Add(tttInput);*/
-
 			form.ShowDialog();
 		}
 
-		public static void mNistTrain(DNN net, double[][][] data) {
-			double[] expectedResults = new double[10];
-			int index = 0;			
-			for (int image = 0; image < data.Length; image++) {
-				expectedResults[index] = 0;
-				index = (int)data[image][0][0];
-				expectedResults[index] = 1;
-
-				net.Train(data[image][1], expectedResults, index % 1 == 0);
-
-				if (image % 1000 == 999) {
-					Console.WriteLine("Completed " + image + " training sets");
-				}
+		public static void mNistTrain(DNN net, double[][] data, double[][] labels) {
+			for (int image = 0; image < data.Length - 1; image++) {
+				net.Train(data[image], labels[image], image % 1 == 0);
 			}
+			net.Train(data[data.Length-1], labels[data.Length-1], true);
 		}
 
-		public static void mNistTest(DNN net, double[][][] data) {
+		public static void mNistTest(DNN net, double[][] data, double[][] labels) {
 			int correct = 0;
 			for (int image = 0; image < data.Length; image++) {
-				double[] guess = net.Guess(data[image][1]);
+				double[] guess = net.Guess(data[image]);
 				int hIndex = 0;
 				for (int i = 1; i < guess.Length; i++) {
 					if (guess[i] > guess[hIndex]) {
 						hIndex = i;
 					}
 				}
-				if (hIndex == (int)data[image][0][0]) {
-					++correct;
+				if ((int)labels[image][hIndex] == 1) {
+					correct++;
 				}
 
 				if (image % 1000 == 999) {
