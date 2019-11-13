@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -9,34 +10,100 @@ using System.Windows.Forms;
 
 namespace SimpleDNN {
 	class Program {
-		static Random rand = new Random();
-		static DNN net;// = new DNN(784, 10, new int[] {});
-		static MNist data = new MNist();
-		static OutputForm form = new OutputForm();
-		static bool drawing = false;
-		static PictureBox tttInput = new PictureBox();
+		static Random rand;
+		static DNN net;
+		static MNist data;
+		static OutputForm form;
+		static bool drawing;
+		static bool doTimer;
 
 		static void Main(string[] args) {
-			net = new DNN(784, 10, new int[] { 20, 20 });
+			rand = new Random();
+			net = new DNN(784, 10, new int[] {20, 20});
+			data = new MNist();
+			form = new OutputForm();
+			drawing = false;
+			doTimer = true;
 
-			/*ThreadStart formRef = new ThreadStart(startForm);
-			Thread formThread = new Thread(formRef);
-			formThread.Start();*/
-
-			for (int i = 0; i < 10; i++) {
-				mNistTrain(net, data.training);
-				mNistTest(net, data.testing);
-			}			
+			while (true) {
+				runCommand(Console.ReadLine());
+			}
 		}
 
-		static void tTrain(string play, char winner) {
-
-		}
-
-		static double[] tGuess(double[] boardState) {
-			double[] guess = net.Guess(boardState);
-			Array.Sort(guess);
-			return guess;
+		static void runCommand(string command) {
+			string[] split = command.ToLower().Split();
+			Stopwatch s = new Stopwatch();
+			switch (split[0]) {
+				case ("help"):
+					Console.WriteLine("Commands\n\thelp: shows this information.\n\ttrain <num>: Trains the network for <num> iterations.\n\ttest: Tests the network and outputs accuracy.\n\tsave <file>: saves the current network as <file>\n\tinput: Adds a form for custom data input\n\ttimer <state=!timer>: Sets timer use to state, with a default value of the opposite of what it currently is.\n\tlearnrate <rate>: Sets the DNN learning rate to rate");
+					break;
+				case ("train"):
+					Console.WriteLine("Starting training");
+					int end = 1;
+					if (split.Length > 1) {
+						Int32.TryParse(split[1], out end);
+					}
+					for (int i = 0; i < end; i++) {
+						Console.WriteLine("Training iteration " + (i+1));
+						if (doTimer) {
+							s = Stopwatch.StartNew();
+						}
+						net.BulkTrain(data.trainingData, data.trainingLabels, 10);
+						if (doTimer) {
+							s.Stop();
+							Console.WriteLine("Completed training in " + s.ElapsedMilliseconds);
+						} else {
+							Console.WriteLine("Completed training");
+						}
+					}
+					break;
+				case ("test"):
+					Console.WriteLine("Starting testing");
+					if (doTimer) {
+						s = Stopwatch.StartNew();
+					}
+					Console.WriteLine(net.BulkTest(data.testingData, data.testingLabels) * 100 + "% accurate");
+					if (doTimer) {
+						s.Stop();
+						Console.WriteLine("Completed testing in " + s.ElapsedMilliseconds);
+					} else {
+						Console.WriteLine("Completed testing");
+					}
+					
+					break;
+				case ("save"):
+					if (split.Length > 1) {
+						net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + split[1]);
+						Console.WriteLine("File saved");
+					} else {
+						Console.WriteLine("Please define file name");
+					}
+					break;
+				case ("input"):
+					ThreadStart formRef = new ThreadStart(startForm);
+					Thread formThread = new Thread(formRef);
+					formThread.Start();
+					break;
+				case ("timer"):
+					if (split.Length > 1) {
+						Boolean.TryParse(split[1], out doTimer);
+					} else {
+						doTimer = !doTimer;
+					}
+					Console.WriteLine("Timer is now " + doTimer);
+					break;
+				case ("learnrate"):
+					if (split.Length > 0) {
+						Double.TryParse(split[1], out net.learningRate);
+						Console.WriteLine("Learning rate set to " + split[1]);
+					} else {
+						Console.WriteLine("Please set a value");
+					}
+					break;
+				default:
+					Console.WriteLine("Unknown command, try 'help'");
+					break;
+			}
 		}
 
 		static void initMNistInput(PictureBox pB) {
@@ -92,7 +159,6 @@ namespace SimpleDNN {
 			Console.WriteLine(hIndex);
 		}
 
-
 		public static void startForm() {
 			PictureBox mnistInput = new PictureBox();
 			initMNistInput(mnistInput);
@@ -101,52 +167,7 @@ namespace SimpleDNN {
 				mnistInput.Size = form.Size;
 			};
 
-			/*TicTacToe tTT = new TicTacToe(tttInput);
-
-			tttInput.SizeMode = PictureBoxSizeMode.Zoom;
-			tttInput.Dock = DockStyle.Fill;
-
-			form.Controls.Add(tttInput);*/
-
 			form.ShowDialog();
-		}
-
-		public static void mNistTrain(DNN net, double[][][] data) {
-			double[] expectedResults = new double[10];
-			int index = 0;			
-			for (int image = 0; image < data.Length; image++) {
-				expectedResults[index] = 0;
-				index = (int)data[image][0][0];
-				expectedResults[index] = 1;
-
-				net.Train(data[image][1], expectedResults, index % 1 == 0);
-
-				if (image % 1000 == 999) {
-					Console.WriteLine("Completed " + image + " training sets");
-				}
-			}
-		}
-
-		public static void mNistTest(DNN net, double[][][] data) {
-			int correct = 0;
-			for (int image = 0; image < data.Length; image++) {
-				double[] guess = net.Guess(data[image][1]);
-				int hIndex = 0;
-				for (int i = 1; i < guess.Length; i++) {
-					if (guess[i] > guess[hIndex]) {
-						hIndex = i;
-					}
-				}
-				if (hIndex == (int)data[image][0][0]) {
-					++correct;
-				}
-
-				if (image % 1000 == 999) {
-					Console.WriteLine("Completed " + image + " testing sets");
-				}
-			}
-
-			Console.WriteLine("Completed testing with " + (100*correct/data.Length) + "% accuracy");
 		}
 	}
 }

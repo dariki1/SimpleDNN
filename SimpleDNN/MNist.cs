@@ -12,36 +12,45 @@ namespace SimpleDNN {
 		const int imageWidth = 28;
 		const int imageHeight = 28;
 
-		public double[][][] training;
-		public double[][][] testing;
+		public double[][] trainingData;
+		public double[][] trainingLabels;
+		public double[][] testingData;
+		public double[][] testingLabels;
 
 		public MNist() {
 			byte[] rawTrainLabels = Properties.Resources.train_labels;
 			byte[] rawTrainData = Properties.Resources.train_images;
-			training = new double[rawTrainLabels.Length - labelOffset][][];
+			trainingData = new double[rawTrainLabels.Length - labelOffset][];			
+			trainingLabels = new double[rawTrainLabels.Length - labelOffset][];
 
-			for (int image = 0; image < training.Length; image++) {
-				training[image] = new double[2][];
-				training[image][0] = new double[] { rawTrainLabels[image + labelOffset] };
-				training[image][1] = new double[imageWidth * imageHeight];
+			for (int image = 0; image < trainingLabels.Length; image++) {
+				trainingData[image] = new double[imageWidth*imageHeight];
+
+				double[] label = new double[10];
+				label[rawTrainLabels[image + labelOffset]] = 1;
+				trainingLabels[image] = label;
+
 				for (int x = 0; x < imageWidth; x++) {
 					for (int y = 0; y < imageHeight; y++) {
-						training[image][1][x * imageWidth + y] = Math.Round(rawTrainData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
+						trainingData[image][x * imageWidth + y] = Math.Round(rawTrainData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
 					}
 				}
 			}
 
 			byte[] rawTestLabels = Properties.Resources.t10k_labels;
 			byte[] rawTestData = Properties.Resources.t10k_images;
-			testing = new double[rawTestLabels.Length - labelOffset][][];
+			testingData = new double[rawTestLabels.Length - labelOffset][];
+			testingLabels = new double[rawTestLabels.Length - labelOffset][];
 
-			for (int image = 0; image < testing.Length; image++) {
-				testing[image] = new double[2][];
-				testing[image][0] = new double[] { rawTestLabels[image + labelOffset] };
-				testing[image][1] = new double[imageWidth * imageHeight];
+			for (int image = 0; image < testingData.Length; image++) {
+				testingData[image] = new double[imageWidth * imageHeight];
+				double[] label = new double[10];
+				label[rawTestLabels[image + labelOffset]] = 1;
+				testingLabels[image] = label;
+				
 				for (int x = 0; x < imageWidth; x++) {
 					for (int y = 0; y < imageHeight; y++) {
-						testing[image][1][x*imageWidth+y] = Math.Round(rawTestData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
+						testingData[image][x*imageWidth+y] = Math.Round(rawTestData[image * 28 * 28 + x * 28 + y + dataOffset] / 255.0);
 					}
 				}
 			}
