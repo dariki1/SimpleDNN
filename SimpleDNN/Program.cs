@@ -19,7 +19,7 @@ namespace SimpleDNN {
 
 		static void Main(string[] args) {
 			rand = new Random();
-			net = new DNN(784, 10, new int[] {20,20});
+			net = new DNN(784, 10, new int[] {20, 20});
 			data = new MNist();
 			form = new OutputForm();
 			drawing = false;
@@ -35,7 +35,7 @@ namespace SimpleDNN {
 			Stopwatch s = new Stopwatch();
 			switch (split[0]) {
 				case ("help"):
-					Console.WriteLine("Commands\n\thelp: shows this information.\n\ttrain <num>: Trains the network for <num> iterations.\n\ttest: Tests the network and outputs accuracy.\n\tsave <file>: saves the current network as <file>\n\tinput: Adds a form for custom data input");
+					Console.WriteLine("Commands\n\thelp: shows this information.\n\ttrain <num>: Trains the network for <num> iterations.\n\ttest: Tests the network and outputs accuracy.\n\tsave <file>: saves the current network as <file>\n\tinput: Adds a form for custom data input\n\ttimer <state=!timer>: Sets timer use to state, with a default value of the opposite of what it currently is.\n\tlearnrate <rate>: Sets the DNN learning rate to rate");
 					break;
 				case ("train"):
 					Console.WriteLine("Starting training");
@@ -72,13 +72,33 @@ namespace SimpleDNN {
 					
 					break;
 				case ("save"):
-					net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + split[1]);
-					Console.WriteLine("File saved");
+					if (split.Length > 1) {
+						net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + split[1]);
+						Console.WriteLine("File saved");
+					} else {
+						Console.WriteLine("Please define file name");
+					}
 					break;
 				case ("input"):
 					ThreadStart formRef = new ThreadStart(startForm);
 					Thread formThread = new Thread(formRef);
 					formThread.Start();
+					break;
+				case ("timer"):
+					if (split.Length > 1) {
+						Boolean.TryParse(split[1], out doTimer);
+					} else {
+						doTimer = !doTimer;
+					}
+					Console.WriteLine("Timer is now " + doTimer);
+					break;
+				case ("learnrate"):
+					if (split.Length > 0) {
+						Double.TryParse(split[1], out net.learningRate);
+						Console.WriteLine("Learning rate set to " + split[1]);
+					} else {
+						Console.WriteLine("Please set a value");
+					}
 					break;
 				default:
 					Console.WriteLine("Unknown command, try 'help'");
