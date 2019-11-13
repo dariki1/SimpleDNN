@@ -159,7 +159,6 @@ namespace SimpleDNN {
 			Console.WriteLine(hIndex);
 		}
 
-
 		public static void startForm() {
 			PictureBox mnistInput = new PictureBox();
 			initMNistInput(mnistInput);

@@ -10,13 +10,13 @@ namespace SimpleDNN {
 	public class DNN {
 		private Node[][] nodes;
 		private Weight[][][] weights;
-		private double learningRate = 0.1;
+		public double learningRate = 0.1;
 
 		public DNN(int inputNumber, int outputNumber, int[] hiddenNumbers) {
 			// Initialise node layers, one input layer, however many hidden layers and one output layer
 			nodes = new Node[2+hiddenNumbers.Length][];
 
-			// Initialise the nodes in input layer
+			// Initialise the nodes in input layer, including a bias node
 			nodes[0] = new Node[inputNumber+1];
 			for (int inputCount = 0; inputCount < inputNumber; inputCount++) {
 				// Create each node as an input node
@@ -88,15 +88,17 @@ namespace SimpleDNN {
 		}
 
 		public double[] Guess(double[] inputs) {
+			// Set the values for the input nodes
 			for (int inputIndex = 0; inputIndex < nodes[0].Length - 1; inputIndex++) {
 				nodes[0][inputIndex].Activate(inputs[inputIndex]);
 			}
 
+			// Pull the values from the previous layer forward to the current layer
 			for (int layer = 1; layer < nodes.Length; layer++) {
 				int nodeCount = nodes[layer].Length;
 				using (ManualResetEvent resetEvent = new ManualResetEvent(false)) {
 					for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
-						//pullValue(layer, outputNode);
+						// For each node in the current layer, make its value equal to the sum of the output of each node in the previous layer multiplied by the appropriate weight
 						ThreadPool.QueueUserWorkItem(new WaitCallback(input => {
 							Tuple<int, int> val = (Tuple<int, int>)input;
 							pullValue(val.Item1, val.Item2);
@@ -105,75 +107,97 @@ namespace SimpleDNN {
 							}
 						}), new Tuple<int, int>(layer, outputNode));
 					}
+					// Wait for all the nodes to finish updating
 					resetEvent.WaitOne();
 				}
 			}
 
 			
-
+			// Get the return values from the final layer
 			double[] ret = new double[nodes[nodes.Length-1].Length];
 			for (int outputIndex = 0; outputIndex < ret.Length; outputIndex++) {
 				ret[outputIndex] = nodes[nodes.Length - 1][outputIndex].output;
 			}
 
+			// Return the return values
 			return ret;
 		}
 
 		private void pullValue(int layer, int outputNode) {
 			double nodeValue = 0;
+			// Sum the outputs of each node in the previous layer through the appropriate weights
 			for (int inputNode = 0; inputNode < nodes[layer - 1].Length; inputNode++) {
 				nodeValue += nodes[layer - 1][inputNode].output * weights[layer - 1][inputNode][outputNode].value;
 			}
+			// Set the given node to it's new value
 			nodes[layer][outputNode].Activate(nodeValue);
 		}
 
+
 		public double BulkTest(double[][] inputs, double[][] outputs) {
+			// The number of guesses that were correct
 			int correct = 0;
-			for (int image = 0; image < inputs.Length; image++) {
-				double[] guess = Guess(inputs[image]);
-				int hIndex = 0;
+			for (int input = 0; input < inputs.Length; input++) {
+				// Make a guess on the current input set
+				double[] guess = Guess(inputs[input]);
+				// Set to true if there is a value mismatch
+				bool wrong = false;
 				for (int i = 1; i < guess.Length; i++) {
-					if (guess[i] > guess[hIndex]) {
-						hIndex = i;
+					if (Math.Round(guess[i]) != guess[i]) {
+						wrong = true;
+						break;
 					}
 				}
-				if ((int)outputs[image][hIndex] == 1) {
+				// If every value was correct, increment correct counter
+				if (!wrong) {
 					correct++;
 				}
 			}
+			// Return the number of correct guesses as a percentage (0.0 to 1.0)
 			return ((double)correct)/((double)outputs.Length);
 		}
 
 		public void BulkTrain(double[][] inputs, double[][] expectedOutputs, int interval) {
+			// For each input, train on it, execute the changes every <interval> inputs
 			for (int input = 0; input < inputs.Length-1; input++) {
 				Train(inputs[input], expectedOutputs[input], input % interval == 0);
 			}
+			// Train on the last input and always execute
 			Train(inputs[inputs.Length-1], expectedOutputs[inputs.Length-1], true);
 		}
 
 		public void Train(double[] inputs, double[] expectedOutputs, bool execute) {
+			// Make a guess
 			double[] guess = Guess(inputs);
 
+			// Set the expected outputs for the output nodes
 			for (int outputIndex = 0; outputIndex < nodes[nodes.Length-1].Length; outputIndex++) {
 				nodes[nodes.Length - 1][outputIndex].expected = expectedOutputs[outputIndex];
 			}
 
+			// Go through each layer backwards
 			for (int layer = nodes.Length - 1; layer > 0; layer--) {
 				// Get adjustments for all nodes except the Bias nodes, which is not present in the last layer
 				for (int outputNode = 0; outputNode < nodes[layer].Length - (layer == nodes.Length - 1 ? 0 : 1); outputNode++) {
+					// Calculate the error of the node outputs
 					double error = nodes[layer][outputNode].expected - nodes[layer][outputNode].output;
+					// Calculate the amount of change needed for the exact value, multiply it by learningRate
 					double gradient = nodes[layer][outputNode].Derivative() * error * learningRate;
 
+					// For each input node
 					for (int inputNode = 0; inputNode < nodes[layer-1].Length; inputNode++) {
 						// If just starting on this layer, reset the expectation of the nodes of the previous layer
 						if (outputNode == 0) {
 							nodes[layer - 1][inputNode].expected = 0;
 						}
 
+						// Set the amount the weight needs to change, but don't change it yet
 						weights[layer - 1][inputNode][outputNode].Adjust(gradient * nodes[layer - 1][inputNode].output);
+						// Change the expected output of the input node
 						nodes[layer - 1][inputNode].expected += weights[layer - 1][inputNode][outputNode].value * error;
 
 						if (execute) {
+							// Change the value of the weight
 							weights[layer - 1][inputNode][outputNode].Train();
 						}
 					}
