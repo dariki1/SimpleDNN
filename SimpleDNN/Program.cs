@@ -15,27 +15,75 @@ namespace SimpleDNN {
 		static MNist data;
 		static OutputForm form;
 		static bool drawing;
+		static bool doTimer;
 
 		static void Main(string[] args) {
 			rand = new Random();
-			net = new DNN(784, 10, new int[] {20, 20});
+			net = new DNN(784, 10, new int[] {20,20});
 			data = new MNist();
 			form = new OutputForm();
 			drawing = false;
+			doTimer = true;
 
-			/*ThreadStart formRef = new ThreadStart(startForm);
-			Thread formThread = new Thread(formRef);
-			formThread.Start();*/
-
-			Stopwatch s = Stopwatch.StartNew();			
-			for (int i = 0; i < 1; i++) {
-				mNistTrain(net, data.trainingData, data.trainingLabels);
-				mNistTest(net, data.testingData, data.testingLabels);
+			while (true) {
+				runCommand(Console.ReadLine());
 			}
-			s.Stop();
-			Console.WriteLine("Complete in " + s.ElapsedMilliseconds);
-			//net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + "Weights.txt");
-			Console.ReadKey();
+		}
+
+		static void runCommand(string command) {
+			string[] split = command.ToLower().Split();
+			Stopwatch s = new Stopwatch();
+			switch (split[0]) {
+				case ("help"):
+					Console.WriteLine("Commands\n\thelp: shows this information.\n\ttrain <num>: Trains the network for <num> iterations.\n\ttest: Tests the network and outputs accuracy.\n\tsave <file>: saves the current network as <file>\n\tinput: Adds a form for custom data input");
+					break;
+				case ("train"):
+					Console.WriteLine("Starting training");
+					int end = 1;
+					if (split.Length > 1) {
+						Int32.TryParse(split[1], out end);
+					}
+					for (int i = 0; i < end; i++) {
+						Console.WriteLine("Training iteration " + (i+1));
+						if (doTimer) {
+							s = Stopwatch.StartNew();
+						}
+						net.BulkTrain(data.trainingData, data.trainingLabels, 10);
+						if (doTimer) {
+							s.Stop();
+							Console.WriteLine("Completed training in " + s.ElapsedMilliseconds);
+						} else {
+							Console.WriteLine("Completed training");
+						}
+					}
+					break;
+				case ("test"):
+					Console.WriteLine("Starting testing");
+					if (doTimer) {
+						s = Stopwatch.StartNew();
+					}
+					Console.WriteLine(net.BulkTest(data.testingData, data.testingLabels) * 100 + "% accurate");
+					if (doTimer) {
+						s.Stop();
+						Console.WriteLine("Completed testing in " + s.ElapsedMilliseconds);
+					} else {
+						Console.WriteLine("Completed testing");
+					}
+					
+					break;
+				case ("save"):
+					net.SaveToFile(@"C:\Projects\Visual Studio\C#\SimpleDNN\" + split[1]);
+					Console.WriteLine("File saved");
+					break;
+				case ("input"):
+					ThreadStart formRef = new ThreadStart(startForm);
+					Thread formThread = new Thread(formRef);
+					formThread.Start();
+					break;
+				default:
+					Console.WriteLine("Unknown command, try 'help'");
+					break;
+			}
 		}
 
 		static void initMNistInput(PictureBox pB) {
@@ -101,35 +149,6 @@ namespace SimpleDNN {
 			};
 
 			form.ShowDialog();
-		}
-
-		public static void mNistTrain(DNN net, double[][] data, double[][] labels) {
-			for (int image = 0; image < data.Length - 1; image++) {
-				net.Train(data[image], labels[image], image % 1 == 0);
-			}
-			net.Train(data[data.Length-1], labels[data.Length-1], true);
-		}
-
-		public static void mNistTest(DNN net, double[][] data, double[][] labels) {
-			int correct = 0;
-			for (int image = 0; image < data.Length; image++) {
-				double[] guess = net.Guess(data[image]);
-				int hIndex = 0;
-				for (int i = 1; i < guess.Length; i++) {
-					if (guess[i] > guess[hIndex]) {
-						hIndex = i;
-					}
-				}
-				if ((int)labels[image][hIndex] == 1) {
-					correct++;
-				}
-
-				if (image % 1000 == 999) {
-					Console.WriteLine("Completed " + image + " testing sets");
-				}
-			}
-
-			Console.WriteLine("Completed testing with " + (100*correct/data.Length) + "% accuracy");
 		}
 	}
 }

@@ -127,6 +127,23 @@ namespace SimpleDNN {
 			nodes[layer][outputNode].Activate(nodeValue);
 		}
 
+		public double BulkTest(double[][] inputs, double[][] outputs) {
+			int correct = 0;
+			for (int image = 0; image < inputs.Length; image++) {
+				double[] guess = Guess(inputs[image]);
+				int hIndex = 0;
+				for (int i = 1; i < guess.Length; i++) {
+					if (guess[i] > guess[hIndex]) {
+						hIndex = i;
+					}
+				}
+				if ((int)outputs[image][hIndex] == 1) {
+					correct++;
+				}
+			}
+			return ((double)correct)/((double)outputs.Length);
+		}
+
 		public void BulkTrain(double[][] inputs, double[][] expectedOutputs, int interval) {
 			for (int input = 0; input < inputs.Length-1; input++) {
 				Train(inputs[input], expectedOutputs[input], input % interval == 0);
