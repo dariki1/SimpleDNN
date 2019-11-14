@@ -133,23 +133,21 @@ namespace SimpleDNN {
 			nodes[layer][outputNode].Activate(nodeValue);
 		}
 
+		public double Test(double[] input, double[] output) {
+			double[] guess = Guess(input);
+			double err = 0;
+			for (int i = 0; i < guess.Length; i++) {
+				err += output[i] - guess[i];
+			}
+			return err/output.Length;
+		}
 
 		public double BulkTest(double[][] inputs, double[][] outputs) {
 			// The number of guesses that were correct
 			int correct = 0;
 			for (int input = 0; input < inputs.Length; input++) {
-				// Make a guess on the current input set
-				double[] guess = Guess(inputs[input]);
-				// Set to true if there is a value mismatch
-				bool wrong = false;
-				for (int i = 1; i < guess.Length; i++) {
-					if (Math.Round(guess[i]) != guess[i]) {
-						wrong = true;
-						break;
-					}
-				}
 				// If every value was correct, increment correct counter
-				if (!wrong) {
+				if (Test(inputs[input], outputs[input]) < 0.5) {
 					correct++;
 				}
 			}
