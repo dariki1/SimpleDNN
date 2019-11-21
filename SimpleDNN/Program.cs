@@ -19,15 +19,125 @@ namespace SimpleDNN {
 
 		static void Main(string[] args) {
 			rand = new Random();
-			net = new DNN(784, 10, new int[] {20, 20});
+			/*net = new DNN(784, 10, new int[] {20, 20});
+			*/
 			data = new MNist();
+			/*
 			form = new OutputForm();
 			drawing = false;
 			doTimer = true;
 
 			while (true) {
 				runCommand(Console.ReadLine());
+			}*/
+
+			/*
+			 * Input: 1
+			 * Hidden: 0
+			 * Output: 2
+			 */
+
+			fDNN f = new fDNN(784,10, new int[] { 20, 20 });
+
+			Console.WriteLine("Training");
+			f.train(data.trainingData, data.trainingLabels,100);			
+			Console.WriteLine("Testing");
+			
+			int correct = 0;
+			for (int i = 0; i < data.testingData.Length; i++) {
+				double[] g = f.guess(data.testingData[i]);
+				int hInd = 0;
+				for (int e = 1; e < g.Length; e++) {
+					if (g[e] > g[hInd]) {
+						hInd = e;
+					}
+				}
+				if (data.testingLabels[i][hInd] == 1) {
+					correct++;
+				}
 			}
+			Console.WriteLine("Complete with " + (((double)correct/(double)data.testingLabels.Length) * 100) + "% accuracy");
+
+			/*Random rdm = new Random();
+			double[] input = new double[] { 1, 0 };
+			double[][,] weights = new double[2][,];
+			weights[0] = new double[2, 2];
+			weights[0][0, 0] = rdm.NextDouble();
+			weights[0][1, 0] = rdm.NextDouble();
+			weights[0][0, 1] = rdm.NextDouble();
+			weights[0][1, 1] = rdm.NextDouble();
+			weights[1] = new double[2, 1];
+			weights[1][0, 0] = rdm.NextDouble();
+			weights[1][1, 0] = rdm.NextDouble();
+
+			for (int e = 0; e < 1000; e++) {
+				double[][][,] wAdj = new double[10][][,];
+				for (int i = 0; i < 10; i++) {
+					input = new double[] { rdm.NextDouble(), rdm.NextDouble() };
+					wAdj[i] = fDNN.trainWeights(input, weights, new double[] { (((input[0] < 0.5 ? false : true) ^ (input[1] < 0.5 ? false : true)) ? 1 : 0) }, fDNN.sigmoid, fDNN.sigmoidDerivative);
+				}
+				for (int i = 0; i < 10; i++) {
+					for (int layer = 0; layer < weights.Length; layer++) {
+						for (int inp = 0; inp < weights[layer].GetLength(0); inp++) {
+							for (int output = 0; output < weights[layer].GetLength(1); output++) {
+								weights[layer][inp, output] += wAdj[i][layer][inp, output];
+							}
+						}
+					}
+				}
+			}
+
+			double c = 0;
+			for (int i = 0; i < 1000; i++) {
+				input = new double[] { rdm.NextDouble(), rdm.NextDouble() };
+				double[] output = fDNN.runNet(input, weights, fDNN.sigmoid);
+				if (Math.Round(output[0]) == (((input[0] < 0.5 ? false : true) ^ (input[1] < 0.5 ? false : true)) ? 1 : 0)) {
+					c++;
+				}
+			}
+			Console.WriteLine("C: " + (c / 10.0));*/
+
+			/*Random rdm = new Random(1);
+			double[] input;
+			double[][,] weights = new double[3][,];
+
+			weights[0] = new double[784, 20];
+			weights[1] = new double[20, 20];
+			weights[2] = new double[20, 10];
+
+			for (int e = 0; e < data.trainingData.Length; e += 10) {
+				double[][][,] wAdj = new double[10][][,];
+				for (int i = 0; i < 10; i++) {
+					input = data.trainingData[e+i];
+					wAdj[i] = fDNN.trainWeights(input, weights, data.trainingLabels[i], fDNN.sigmoid, fDNN.sigmoidDerivative);
+				}
+				for (int i = 0; i < 10; i++) {
+					for (int layer = 0; layer < weights.Length; layer++) {
+						for (int inp = 0; inp < weights[layer].GetLength(0); inp++) {
+							for (int output = 0; output < weights[layer].GetLength(1); output++) {
+								weights[layer][inp, output] += wAdj[i][layer][inp, output];
+							}
+						}
+					}
+				}
+			}
+
+			double correct = 0;
+			for (int i = 0; i < data.testingData.Length; i++) {
+				double[] g = fDNN.runNet(data.testingData[i], weights, fDNN.sigmoid);
+				int hInd = 0;
+				for (int e = 1; e < g.Length; e++) {
+					if (g[e] > g[hInd]) {
+						hInd = e;
+					}
+				}
+				if (data.testingLabels[i][hInd] == 1) {
+					correct++;
+				}
+			}
+			Console.WriteLine("C: " + (correct / data.testingData.Length));
+			*/
+			Console.ReadKey();
 		}
 
 		static void runCommand(string command) {
@@ -62,7 +172,7 @@ namespace SimpleDNN {
 					if (doTimer) {
 						s = Stopwatch.StartNew();
 					}
-					Console.WriteLine(net.BulkTest(data.testingData, data.testingLabels) * 100 + "% accurate");
+					Console.WriteLine(net.BulkTest(data.testingData, data.testingLabels, 0.1) * 100 + "% accurate");
 					if (doTimer) {
 						s.Stop();
 						Console.WriteLine("Completed testing in " + s.ElapsedMilliseconds);

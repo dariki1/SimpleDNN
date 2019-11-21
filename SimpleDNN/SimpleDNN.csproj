@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DNN.cs" />
+    <Compile Include="fDNN.cs" />
     <Compile Include="MNist.cs" />
     <Compile Include="OutputForm.cs">
       <SubType>Form</SubType>
