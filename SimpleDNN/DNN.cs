@@ -53,7 +53,7 @@ namespace SimpleDNN {
 				weights[layer] = new Weight[nodes[layer].Length][];
 				for (int inputIndex = 0; inputIndex < weights[layer].Length; inputIndex++) {
 					// Initilise the weights for the nodes that are recieving values from the previous layer
-					weights[layer][inputIndex] = new Weight[nodes[layer+1].Length];
+					weights[layer][inputIndex] = new Weight[nodes[layer+1].Length-(layer == weights.Length-1? 0 : 1)];
 					for (int outputIndex = 0; outputIndex < weights[layer][inputIndex].Length; outputIndex++) {
 						// Give the weight a random value
 						weights[layer][inputIndex][outputIndex] = new Weight(rand.NextDouble() * 2 - 1);
@@ -95,9 +95,9 @@ namespace SimpleDNN {
 
 			// Pull the values from the previous layer forward to the current layer
 			for (int layer = 1; layer < nodes.Length; layer++) {
-				int nodeCount = nodes[layer].Length;
+				int nodeCount = nodes[layer].Length - (layer == nodes.Length - 1 ? 0 : 1);
 				using (ManualResetEvent resetEvent = new ManualResetEvent(false)) {
-					for (int outputNode = 0; outputNode < nodes[layer].Length; outputNode++) {
+					for (int outputNode = 0; outputNode < nodes[layer].Length-(layer == nodes.Length-1?0:1); outputNode++) {
 						// For each node in the current layer, make its value equal to the sum of the output of each node in the previous layer multiplied by the appropriate weight
 						ThreadPool.QueueUserWorkItem(new WaitCallback(input => {
 							Tuple<int, int> val = (Tuple<int, int>)input;
@@ -213,7 +213,7 @@ namespace SimpleDNN {
 		private double value;
 		private double _output = 0;
 		public double output {
-			get { return activator == ActivationType.Bias ? 1 : _output; }
+			get { return activator == ActivationType.Bias ? Sigmoid(1) : _output; }
 		}
 		public double expected = 0;
 		public ActivationType activator = ActivationType.Sigmoid;

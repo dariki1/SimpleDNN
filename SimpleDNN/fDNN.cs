@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SimpleDNN {
 	class fDNN {	
-		double[][,] weights;
+		public double[][,] weights;
+		public double learningRate = 0.1;
 		Func<double, double> activation;
 		Func<double, double> activationDeriver;
 
@@ -21,18 +23,18 @@ namespace SimpleDNN {
 			Random rdm = new Random();
 			weights = new double[1+hidden.Length][,];
 
-			weights[0] = new double[inputs, hidden.Length > 0 ? hidden[0] : outputs];
+			weights[0] = new double[inputs + 1, hidden.Length > 0 ? hidden[0] : outputs];
 			for (int layer = 1; layer < hidden.Length; layer++) {
-				weights[layer] = new double[weights[layer - 1].GetLength(1), hidden[layer]];
+				weights[layer] = new double[weights[layer - 1].GetLength(1) + 1, hidden[layer]];
 			}
 			if (hidden.Length > 0) {
-				weights[weights.Length - 1] = new double[weights[weights.Length - 2].GetLength(1), outputs];
+				weights[weights.Length - 1] = new double[weights[weights.Length - 2].GetLength(1) + 1, outputs];
 			}
 
 			for (int layer = 0; layer < weights.Length; layer++) {
 				for (int input = 0; input < weights[layer].GetLength(0); input++) {
 					for (int output = 0; output < weights[layer].GetLength(1); output++) {
-						weights[layer][input, output] = rdm.NextDouble();
+						weights[layer][input, output] = rdm.NextDouble()*2-1;
 					}
 				}
 			}
@@ -49,11 +51,23 @@ namespace SimpleDNN {
 			if (changeWeightFrequency < 1) {
 				throw new Exception("changeWeightFrequency must be at least 1");
 			}
+
 			double[][][,] wChange = new double[changeWeightFrequency][][,];
 			int top = (inputs.Length - 1) / changeWeightFrequency;
-			for (int batch = 0; batch < top; batch++) {
-				for (uint item = 0; item < wChange.Length; item++) {
-					wChange[item] = trainWeights(inputs[batch*changeWeightFrequency+item], this.weights, outputs[batch*changeWeightFrequency+item], this.activation, this.activationDeriver);
+
+			for (int batch = 0; batch <= top; batch++) {
+				int itemCount = wChange.Length;
+				using (ManualResetEvent resetEvent = new ManualResetEvent(false)) {
+					for (int item = 0; item < wChange.Length; item++) {
+						ThreadPool.QueueUserWorkItem(new WaitCallback(val => {
+							int itemNum = (int)val;
+							wChange[itemNum] = trainWeights(inputs[batch * changeWeightFrequency + itemNum], this.weights, outputs[batch * changeWeightFrequency + itemNum], this.activation, this.activationDeriver, this.learningRate);
+							if (Interlocked.Decrement(ref itemCount) == 0) {
+								resetEvent.Set();
+							}
+						}), item);
+					}
+					resetEvent.WaitOne();
 				}
 				
 				for (int item = 0; item < wChange.Length; item++) {
@@ -69,8 +83,8 @@ namespace SimpleDNN {
 
 			// Trains the left over items, this ensures the final training items actually change the weights
 			wChange = new double[inputs.Length % changeWeightFrequency][][,];
-			for (int item = 0; item < inputs.Length%changeWeightFrequency; item++) {
-				wChange[item] = trainWeights(inputs[top * changeWeightFrequency + item], this.weights, outputs[top * changeWeightFrequency + item], this.activation, this.activationDeriver);
+			for (int item = 0; item < inputs.Length%changeWeightFrequency; item++) {				
+				wChange[item] = trainWeights(inputs[top * changeWeightFrequency + item], this.weights, outputs[top * changeWeightFrequency + item], this.activation, this.activationDeriver, this.learningRate);
 			}
 
 			for (int item = 0; item < wChange.Length; item++) {
@@ -85,40 +99,45 @@ namespace SimpleDNN {
 		}
 
 		public static double[] runNet(double[] input, double[][,] weights, Func<double, double> activationFunction) {
-			double[] nodes = feedForward(input, weights[0], activationFunction);
+			// Input nodes don't use an activation function
+			double[] nodes = feedForward(input, weights[0], (val) => { return val; });
 			for (int layer = 1; layer < weights.Length; layer++) {
 				nodes = feedForward(nodes, weights[layer], activationFunction);
 			}
 			return activate(activationFunction, nodes);
 		}
 
-		public static double[][,] trainWeights(double[] input, double[][,] weights, double[] expectedOutput, Func<double, double> activationFunction, Func<double, double> activationDerivative) {
+		public static double[][,] trainWeights(double[] input, double[][,] weights, double[] expectedOutput, Func<double, double> activationFunction, Func<double, double> activationDerivative, double trainRate) {
 			double[][,] ret = new double[weights.Length][,];			
 			double[] thisExpectation = expectedOutput;
 
 			double[][] nodes = new double[weights.Length+1][];
-			nodes[0] = input;
-			for (int layer = 1; layer < nodes.Length; layer++) {
-				nodes[layer] = feedForward(nodes[layer-1], weights[layer-1], activationFunction);
+			nodes[0] = new double[input.Length+1];
+			input.CopyTo(nodes[0], 0);
+			nodes[0][nodes[0].Length - 1] = 1;
+
+			// This is to use the inputs raw, rather than put them through an activation function
+			nodes[1] = new double[weights[0].GetLength(1) + 1];
+			nodes[1][nodes[1].Length - 1] = 1;
+			feedForward(nodes[0], weights[0], (val) => { return val; }).CopyTo(nodes[1], 0);
+
+			for (int layer = 2; layer < nodes.Length-1; layer++) {
+				nodes[layer] = new double[weights[layer - 1].GetLength(1) + 1];
+				nodes[layer][nodes[layer].Length - 1] = 1;
+				feedForward(nodes[layer-1], weights[layer-1], activationFunction).CopyTo(nodes[layer],0);
 			}
-			
+
+			nodes[nodes.Length - 1] = new double[weights[nodes.Length - 1 - 1].GetLength(1)];
+			feedForward(nodes[nodes.Length - 2], weights[nodes.Length - 2], activationFunction).CopyTo(nodes[nodes.Length - 1], 0);
+
 			for (int layer = weights.Length - 1; layer >= 0; layer--) {
 				double[] err = error(activate(activationFunction, nodes[layer+1]), thisExpectation);
-				double[] grad = gradient(activate(activationDerivative, nodes[layer + 1]), err, 0.1);
+				double[] grad = gradient(activate(activationDerivative, nodes[layer + 1]), err, trainRate);
 
 				thisExpectation = nodeAdjustment(weights[layer], err);
 
-				ret[layer] = weightAdjustment(activate(activationFunction, nodes[layer]), grad);				
+				ret[layer] = weightAdjustment(activate(activationFunction, nodes[layer]), grad);
 			}
-
-			/*Console.WriteLine("v*********************************************v");
-			for (int layer = 0; layer < nodes.Length; layer++) {
-				for (int node = 0; node < nodes[layer].Length; node++) {
-					Console.Write(nodes[layer][node]+",");
-				}
-				Console.WriteLine();
-			}
-			Console.WriteLine("^*********************************************^");*/
 
 			return ret;
 		}
@@ -127,9 +146,9 @@ namespace SimpleDNN {
 			return 1 / (1 + Math.Exp(-value));
 		}
 
-		public static double deriveSigmoid(double value) {
+		/*public static double deriveSigmoid(double value) {
 			return value * (1 - value);
-		}
+		}*/
 
 		public static double sigmoidDerivative(double value) {
 			// Equivalent to return Sigmoid(value) * (1 - Sigmoid(value));
@@ -140,29 +159,16 @@ namespace SimpleDNN {
 		 * Takes the inputs, weights and desired activation function and calculates the output
 		 */
 		private static double[] feedForward(double[] inputNodes, double[,] weights, Func<double, double> activationFunction) {
-			if (inputNodes.Length != weights.GetLength(0)) {
-				throw new Exception("inputNodes and first dimension of weights must be the same length");
-			}
 			double[] ret = new double[weights.GetLength(1)];
 			for (int input = 0; input < inputNodes.Length; input++) {
 				for (int output = 0; output < weights.GetLength(1); output++) {
 					ret[output] += activationFunction(inputNodes[input]) * weights[input,output];
 				}
 			}
-			return ret;
-		}
-
-		/**
-		 * 
-		 */
-		private static double[] backProp(double[] outputNodes, double[,] weights) {
-			if (outputNodes.Length != weights.GetLength(1)) {
-				throw new Exception("outputNodes and second dimension of weights must be the same length");
-			}
-			double[] ret = new double[weights.GetLength(0)];
-			for (int output = 0; output < outputNodes.Length; output++) {
-				for (int input = 0; input < weights.GetLength(0); input++) {
-					ret[input] += outputNodes[output] * weights[input,output];
+			// Loops through all the input weights that don't have an input node and assumes a node value of 1. This acts as a bias node
+			for (int input = inputNodes.Length; input < weights.GetLength(0); input++) {
+				for (int output = 0; output < weights.GetLength(1); output++) {
+					ret[output] += activationFunction(1) * weights[input, output];
 				}
 			}
 			return ret;
@@ -172,9 +178,6 @@ namespace SimpleDNN {
 		 * Calculates the error between the output values and the expected outptus
 		 */
 		private static double[] error(double[] outputValues, double[] expectedOutputs) {
-			if (outputValues.Length != expectedOutputs.Length) {
-				throw new Exception("outputValues and expectedOutputs must be the same length");
-			}
 			double[] ret = new double[outputValues.Length];
 			for (int i = 0; i < outputValues.Length; i++) {
 				ret[i] = expectedOutputs[i] - outputValues[i];
@@ -246,9 +249,6 @@ namespace SimpleDNN {
 		 * Returns the expected value of the input nodes
 		 */
 		private static double[] nodeAdjustment(double[,] weights, double[] error) {
-			if (weights.GetLength(1) != error.Length) {
-				throw new Exception("error and second dimension of weights should be equal");
-			}
 			double[] ret = new double[weights.GetLength(0)];
 
 			for (int input = 0; input < weights.GetLength(0); input++) {
